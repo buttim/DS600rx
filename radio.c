@@ -8,8 +8,8 @@ uint8_t _channel = DEFAULT_CHANNEL;
 
 uint8_t SPITransfer(uint8_t x) {
   SPDR = x;
-  Timer3_Delay10us(1);
-  while (!(SPSR & 0x80))
+  //Timer3_Delay10us(1);
+  while (!(SPSR & SPSR_SPIF))
     ;
   clr_SPIF;
   return SPDR;
@@ -19,7 +19,7 @@ uint16_t LT8920ReadRegister(uint8_t reg) {
   uint8_t h, l;
 
   SS = 0;
-  Timer3_Delay10us(1);
+  //Timer3_Delay10us(1);
 
   SPITransfer(REGISTER_READ | reg);
   h = SPITransfer(0);
@@ -33,7 +33,6 @@ uint8_t LT8920WriteRegister2(uint8_t reg, uint8_t high, uint8_t low) {
   uint8_t result;
 
   SS = 0;
-  Timer3_Delay10us(1);
   result = SPITransfer(REGISTER_WRITE | reg);
   SPITransfer(high);
   SPITransfer(low);
@@ -83,11 +82,11 @@ void LT8920SetCurrentControl(uint8_t power, uint8_t gain) {
 
 void LT8920StartListening() {
   LT8920WriteRegister(R_CHANNEL, _channel & CHANNEL_MASK); // turn off rx/tx
-  Timer3_Delay10us(300);
+  //Timer3_Delay10us(300);
   LT8920WriteRegister(R_FIFO_CONTROL, 0x0080); // flush rx
   LT8920WriteRegister(R_CHANNEL, (_channel & CHANNEL_MASK) |
                                      (1 << CHANNEL_RX_BIT)); // enable RX
-  Timer3_Delay10us(500);
+  //Timer3_Delay10us(500);
 }
 
 int LT8920Read(uint8_t *buffer, size_t maxBuffer) {
