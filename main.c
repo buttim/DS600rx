@@ -1,22 +1,23 @@
 //! make
-//! nuvoflash -w APROM "build\%name%.bin"
+//! nuvoflash -q -w APROM "build\%name%.bin"
 #include "N76E003.h"
 #include "common.h"
 #include "delay.h"
+#include "iap.h"
 #include "oled.h"
 #include "radio.h"
 #include "spi.h"
 #include <string.h>
 
-#define PACKET_LENGTH 10
+#define PACKET_LENGTH 32//10
 #define T2 (0xFFFF-16000)
 
 __xdata uint8_t buf[PACKET_LENGTH], 
-  oldBuf[PACKET_LENGTH],
-  channels[] = {34, 74, 4, 44, 29, 69, 9, 49};
+  oldBuf[PACKET_LENGTH];
+__code __at(0x3600) uint8_t channels[] = {34, 74, 4, 44, 29, 69, 9, 49};
 __xdata uint16_t pwm[6];
-int nChannel = 0;
-volatile unsigned long millis=0;
+__xdata int nChannel = 0;
+__xdata volatile unsigned long millis=0;
 
 void tim2() __interrupt 5 __using 1 {
   millis++;
@@ -99,24 +100,31 @@ void printNum(unsigned long n,int len) {
 }
 
 void hop(int n) {
+  LT8920StopListening();
   nChannel+=n;
   nChannel %= sizeof channels / sizeof(*channels);
-  LT8920SetChannel(channels[nChannel]);
-  LT8920StartListening();
+  LT8920StartListening(channels[nChannel]);
   //!OLED_ShowNum(100, 0, channels[nChannel], 2, 16);
-  ////!OLED_ShowString(5, 6, "                  ", 16);
+  //!OLED_ShowString(5, 6, "                  ", 16);
 }
 
 unsigned tLast=0;
 int nPersi=0, nRicevuti=0;
 unsigned long nCicli;
+bool pairing=false;//true;
 
 void main() {
   TIMER1_MODE0_ENABLE;
   Set_All_GPIO_Quasi_Mode;
   InitialUART0_Timer1(115200);
 
-  puts("VIA\n");
+  puts("\x1b[2J\x1b[HVIA");
+  if (pairing) puts("pairing");
+  
+  /*uint8_t x;
+  read_data_flash((int)&channels,&x,1);
+  printHex8(x);
+  putchar('\n');*/
 
   initTimer2();
   set_EA;
@@ -129,12 +137,14 @@ void main() {
   SPI_Initial();
   Timer3_Delay100ms(1);
 
-  LT8920Begin();
+  LT8920Begin(pairing);
   //!OLED_Init();
   //!OLED_Clear();
 
-  LT8920SetChannel(channels[0]);
-  LT8920StartListening();
+  LT8920StartListening(pairing?33:channels[0]);
+  putstring("in ascolto sul canale ");
+  printNum(channels[nChannel],2);
+  putchar('\n');
   //!OLED_ShowNum(100,0,channels[0],2,16);
   //!OLED_ShowString(40,0,"channel",16);
 
@@ -144,6 +154,9 @@ void main() {
     nCicli++;
 
     if (!P20) {
+      printHex16(LT8920ReadRegister(R_STATUS));
+      putchar(' ');
+      printHex16(LT8920ReadRegister(7));
       putchar('\n');
       printNum(millis,8);
       putchar(':');
@@ -168,46 +181,66 @@ void main() {
       Timer3_Delay100ms(2);
     }
     
-    clr_EA;
-    //TODO: longer timeout when resyncing
-    if (millis-tLast>44) {	//timeout waiting for packet
-      tLast=millis;
-      set_EA;
-      hop(3);
-      if (nRicevuti>0) {
-	printNum(millis,8);
-	putchar(':');
-	putstring("persi ");
-	printNum(++nPersi,6);
-	putstring(" ricevuti ");
-	printNum(nRicevuti,6);
-	putchar('\n');
+    if (!pairing) {
+      clr_EA;
+      //TODO: longer timeout when resyncing
+      if (millis-tLast>44) {	//timeout waiting for packet
+	tLast=millis;
+	set_EA;
+	hop(3);
+	if (nRicevuti>0) {
+	  printNum(millis,8);
+	  putchar(':');
+	  putstring("persi ");
+	  printNum(++nPersi,6);
+	  putstring(" ricevuti ");
+	  printNum(nRicevuti,6);
+	  putchar('\n');
+	}
       }
+      else
+	set_EA;
     }
-    else
-      set_EA;
 
-    //if (!LT8920Available()) continue;
-    P14=1;
-    int n = LT8920Read(buf, sizeof buf);
+    if (!LT8920Available()) continue;
     P14=0;
-    if (n == 0)
+    int n = LT8920Read(buf, sizeof buf);
+    P14=1;
+    if (n == 0) {
+      putstring("stato: ");
+      printHex16(LT8920ReadRegister(R_STATUS));
+      putchar(' ');
+      printNum(LT8920ReadRegister(R_FIFO_CONTROL)&0x3F,2);
+      putchar('\n');
+      LT8920StartListening(pairing?33:channels[nChannel]);
       continue;
+    }
     if (n > 0) {
-      if (n == 9) {
-	LT8920ReadRegister(48);//?
+      if (pairing && n==20) {
+	printNum(millis,10);
+	putchar(':');
+	for (int i = 0; i < n; i++) {
+	  printHex8(buf[i]);
+	  putchar(' ');
+	}
+	putchar('\n');
+	LT8920StartListening(33);
+      }
+      else if (!pairing && n==9) {
         hop(1);
 	tLast=millis;
 	++nRicevuti;
+	printNum(millis,10);
+	putchar(':');
         if (memcmp(buf, oldBuf, n) != 0) {
-          putchar('\r');
+          //putchar('\r');
           for (int i = 0; i < n; i++) {
             printHex8(buf[i]);
             putchar(' ');
           }
-	  putstring(" / ");
+          putchar('\r');
           memcpy(oldBuf, buf, sizeof buf);
-
+	  //putstring(" / ");
           // pwm[0]=(buf[0]<<4)+(buf[1]>>4);
           //pwm[1] = (buf[1] <<4) | (buf[2] );
 	  //printHex16(pwm[1]);
@@ -222,15 +255,22 @@ void main() {
           }
           putchar('\n');*/
         }
+	putchar('\r');
+	LT8920StartListening(pairing?33:channels[nChannel]);
       } else {
+	  putstring("lunghezza sbagliata: ");
+	  printNum(n,3);
+	  putchar('\n');
+	  LT8920StartListening(pairing?33:channels[nChannel]);
         //!OLED_ShowString(0, 2, "len?", 16);
         //!OLED_ShowNum(20, 2, n, 3, 16);
       }
     } else /*if (n < -2)*/ {
-      /*putstring("\n\nerr 0x");
+      putstring("\n\nerr 0x");
       printHex16(-n);
       putchar('\n');
-      Timer3_Delay100ms(2);*/
+      Timer3_Delay100ms(2);
+      LT8920StopListening();
       //!OLED_ShowString(5, 6, "err", 16);
       //!OLED_ShowNum(30, 6, -n, 3, 16);
     }

@@ -14,6 +14,5 @@
 #define TIMER_DIV128_VALUE_100ms	65536-12500	//12500*128/16000000 = 100 ms	// Timer divider = 128
 
 void Timer3_Delay100ms(uint32_t u32CNT);
-//void Timer2_Delay500us(uint32_t u32CNT);
 void Timer3_Delay10us(uint32_t u32CNT);
 #endif

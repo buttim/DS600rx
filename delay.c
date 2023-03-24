@@ -30,3 +30,4 @@ void Timer3_Delay10us(uint32_t u32CNT) {
   }
   clr_TR3; // Stop Timer3
 }
+
