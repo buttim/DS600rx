@@ -2,18 +2,8 @@
 #include "N76E003.h"
 
 #include "delay.h"
+#include "spi.h"
 #include "radio.h"
-
-#define _BV(n) (1 << (n))
-
-uint8_t SPITransfer(uint8_t x) {
-  SPDR = x;
-  __asm__("nop");
-  while (!(SPSR & SPSR_SPIF))
-    ;
-  clr_SPIF;
-  return SPDR;
-}
 
 uint16_t LT8920ReadRegister(uint8_t reg) {
   uint8_t h, l;
@@ -29,21 +19,23 @@ uint16_t LT8920ReadRegister(uint8_t reg) {
   return (h << 8) | l;
 }
 
-uint8_t LT8920ReadRegister2(uint8_t reg) {
+/*uint8_t LT8920ReadRegisterByte(uint8_t reg) {
   SS = 0;
   __asm__("nop");
 
   SPITransfer(REGISTER_READ | reg);
+  __asm__("nop\nnop\nnop");
   uint8_t v = SPITransfer(0);
 
   SS = 1;
   return v;
-}
+}*/
 
 uint8_t LT8920WriteRegister2(uint8_t reg, uint8_t high, uint8_t low) {
   uint8_t result;
 
   SS = 0;
+  __asm__("nop");
   result = SPITransfer(REGISTER_WRITE | reg);
   SPITransfer(high);
   SPITransfer(low);
@@ -57,38 +49,37 @@ uint8_t LT8920WriteRegister(uint8_t reg, uint16_t val) {
 }
 
 void LT8920Begin(bool pairing) {
-  LT8920WriteRegister(0,0x6FE0);
-  LT8920WriteRegister(2,0x6617);
-  LT8920WriteRegister(4,0x9CC9);
-  LT8920WriteRegister(5,0x6637);
-  LT8920WriteRegister(7,0x0000);
-  LT8920WriteRegister(8,0x6C90);
-  LT8920WriteRegister(9,0x1840);
-  LT8920WriteRegister(11,0x0008);
-  LT8920WriteRegister(13,0x48BD);
-  LT8920WriteRegister(22,0x00FF);
-  LT8920WriteRegister(23,0x8005);
-  LT8920WriteRegister(24,0x0067);
-  LT8920WriteRegister(26,0x19E0);
-  LT8920WriteRegister(27,0x1300);
-  LT8920WriteRegister(32,0x6800);
-  LT8920WriteRegister(33,0x3FC7);
-  LT8920WriteRegister(34,0x2000);
-  LT8920WriteRegister(35,0x0300);
-  LT8920WriteRegister(40,0x4401);
-  LT8920WriteRegister(41,0xB400);
-  LT8920WriteRegister(42,0xFDB0);
-  LT8920WriteRegister(44,0x0800);
-  LT8920WriteRegister(45,0x0552);
+  LT8920WriteRegister(0, 0x6FE0);
+  LT8920WriteRegister(2, 0x6617);
+  LT8920WriteRegister(4, 0x9CC9);
+  LT8920WriteRegister(5, 0x6637);
+  LT8920WriteRegister(7, 0x0000);
+  LT8920WriteRegister(8, 0x6C90);
+  LT8920WriteRegister(9, 0x1840);
+  LT8920WriteRegister(11, 0x0008);
+  LT8920WriteRegister(13, 0x48BD);
+  LT8920WriteRegister(22, 0x00FF);
+  LT8920WriteRegister(23, 0x8005);
+  LT8920WriteRegister(24, 0x0067);
+  LT8920WriteRegister(26, 0x19E0);
+  LT8920WriteRegister(27, 0x1300);
+  LT8920WriteRegister(32, 0x6800);
+  LT8920WriteRegister(33, 0x3FC7);
+  LT8920WriteRegister(34, 0x2000);
+  LT8920WriteRegister(35, 0x0300);
+  LT8920WriteRegister(40, 0x4401);
+  LT8920WriteRegister(41, 0xB400);
+  LT8920WriteRegister(42, 0xFDB0);
+  LT8920WriteRegister(44, 0x0800);
+  LT8920WriteRegister(45, 0x0552);
   if (pairing) {
-    LT8920WriteRegister(39,0x1234);
-    LT8920WriteRegister(36,0x5678);
+    LT8920WriteRegister(39, 0x1234);
+    LT8920WriteRegister(36, 0x5678);
+  } else {
+    LT8920WriteRegister(39, 0xF3AA);
+    LT8920WriteRegister(36, 0x180C);
   }
-  else {
-    LT8920WriteRegister(39,0xF3AA);
-    LT8920WriteRegister(36,0x180C);
-  }
-  LT8920WriteRegister(52,0x8080);
+  LT8920WriteRegister(52, 0x8080);
 }
 
 void LT8920SetCurrentControl(uint8_t power, uint8_t gain) {
@@ -100,29 +91,45 @@ void LT8920SetCurrentControl(uint8_t power, uint8_t gain) {
 void LT8920StopListening() {
   LT8920WriteRegister(R_CHANNEL, 0); // turn off rx/tx
 }
+
 void LT8920StartListening(int channel) {
-  LT8920WriteRegister(R_FIFO_CONTROL, 0x0080); // flush rx
+  LT8920WriteRegister(R_FIFO_CONTROL, 0x8080); // flush rx
   LT8920WriteRegister(R_CHANNEL, (channel & CHANNEL_MASK) |
                                      _BV(CHANNEL_RX_BIT)); // enable RX
 }
 
 int LT8920Read(uint8_t *buffer, size_t maxBuffer) {
-  uint16_t value = LT8920ReadRegister(R_STATUS);
-  
-  if ((value & _BV(STATUS_CRC_BIT)) != 0)
-      return -1; // CRC error
-  
-   uint8_t pos=0, packetSize=LT8920ReadRegister2(R_FIFO);
-    
-  if (packetSize>maxBuffer)
+  uint8_t pos = 0, packetSize;/* = LT8920ReadRegisterByte(R_FIFO);
+
+  if (packetSize > maxBuffer)
     return -2;
-    
+
   while (pos < packetSize) {
     __asm__("nop\nnop\nnop\nnop\nnop");
     __asm__("nop\nnop\nnop\nnop\nnop");
-    buffer[pos++] = LT8920ReadRegister2(R_FIFO);
-  }
+    buffer[pos++] = LT8920ReadRegisterByte(R_FIFO);
+  }*/
   
+  __asm__("nop\nnop\nnop\nnop");				//>250ns delay
+  SS = 0;
+  __asm__("nop");									//>41.5ns delay
+  uint8_t statusHigh=SPITransfer(REGISTER_READ|R_FIFO);
+  if ((statusHigh&0x80)!=0)
+    packetSize=-1;	//CRC error
+  else {
+    __asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");		//>450ns delay
+    packetSize=SPITransfer(0);
+    
+    if (packetSize > maxBuffer)
+      packetSize=-2;
+    else {
+      while (pos < packetSize) {
+	__asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");	//>450ns delay
+	buffer[pos++] = SPITransfer(0);
+      }
+    }
+  }
+  SS=1;
   return packetSize;
 }
 
@@ -139,7 +146,7 @@ void LT8920SetSyncWordLength(uint8_t option) {
   LT8920WriteRegister(32, (LT8920ReadRegister(32) & 0x0300) | (option << 11));
 }
 
-bool LT8920SendPacket(int channel,uint8_t *val, size_t packetSize) {
+bool LT8920SendPacket(int channel, uint8_t *val, size_t packetSize) {
   uint8_t pos;
   if (packetSize < 1 || packetSize > 255)
     return false;
@@ -174,9 +181,4 @@ bool LT8920SendPacket(int channel,uint8_t *val, size_t packetSize) {
   }*/
 
   return true;
-}
-
-bool LT8920Available() {
-  uint16_t v=LT8920ReadRegister(R_STATUS);
-  return (v & _BV(STATUS_PKT_FLAG_BIT)) != 0 && (v & _BV(STATUS_SYNCWORD_RECV_BIT)) != 0; 
 }

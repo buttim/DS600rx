@@ -2,22 +2,35 @@
 #include "N76E003.h"
 #include "spi.h"
 
-void SPI_Initial(void) {
-  P12_Quasi_Mode; // P12 (SS) Quasi mode
-  P10_Quasi_Mode; // P10(SPCLK) Quasi mode
-  P00_Quasi_Mode; // P00 (MOSI) Quasi mode
-  P01_Quasi_Mode; // P01 (MISO) Quasi mode
+void SPIInit(void) {
+  P12_PushPull_Mode;
+  P10_PushPull_Mode;
+  P00_PushPull_Mode;
+  P01_Input_Mode;
 
-  set_DISMODF; // SS General purpose I/O ( No Mode Fault )
+  clr_SPIEN;
+  set_DISMODF; 	// SS General purpose I/O ( No Mode Fault )
   clr_SSOE;
 
-  clr_LSBFE; // MSB first
+  clr_LSBFE;
+  
+  bool EA_SAVE;
+  set_SPIS1;
+  set_SPIS0;
 
-  set_CPOL; // The SPI clock is low in idle mode
-  clr_CPHA; // The data is sample on the second edge of SPI clock
+  clr_CPOL; 
+  set_CPHA;
 
-  set_MSTR;     // SPI in Master mode
-  SPICLK_DIV16; // Select SPI clock
-  set_SPIEN;    // Enable SPI function
+  set_MSTR;
+  SPICLK_DIV16; 
+  set_SPIEN;
   clr_SPIF;
+}
+
+uint8_t SPITransfer(uint8_t x) {
+  SPDR = x;
+  while (!(SPSR & SPSR_SPIF))
+    ;
+  clr_SPIF;
+  return SPDR;
 }

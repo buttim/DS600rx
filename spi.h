@@ -7,5 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void SPI_Initial();
+void SPIInit();
+uint8_t SPITransfer(uint8_t x);
 #endif

@@ -15,6 +15,8 @@
 	RST	P0.4
 */
 
+#define _BV(n) (1 << (n))
+
 #undef SS
 #define		SS			P12
 
@@ -54,9 +56,11 @@
 #define PACKETCONFIG_PKT_FIFO_POLARITY  0x0400
 
 #define R_STATUS            		48
-#define STATUS_CRC_BIT      		15
-#define STATUS_PKT_FLAG_BIT      	6
+#define STATUS_CRC_BIT			15
+#define STATUS_FEC23_ERROR_BIT		14
 #define STATUS_SYNCWORD_RECV_BIT      	7
+#define STATUS_PKT_FLAG_BIT      	6
+#define STATUS_FIFO_FLAG_BIT      	5
 
 #define R_FIFO              		50
 #define R_FIFO_CONTROL      		52
@@ -71,5 +75,4 @@ void LT8920SetSyncWordLength(uint8_t option);
 void LT8920Begin(bool pairing);
 void LT8920SetCurrentControl(uint8_t power, uint8_t gain);
 bool LT8920SendPacket(int channel,uint8_t *val, size_t packetSize);
-bool LT8920Available();
 #endif
