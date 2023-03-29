@@ -9,7 +9,7 @@ uint16_t LT8920ReadRegister(uint8_t reg) {
   uint8_t h, l;
 
   SS = 0;
-  __asm__("nop");
+  //~ __asm__("nop");
 
   SPITransfer(REGISTER_READ | reg);
   h = SPITransfer(0);
@@ -35,7 +35,7 @@ uint8_t LT8920WriteRegister2(uint8_t reg, uint8_t high, uint8_t low) {
   uint8_t result;
 
   SS = 0;
-  __asm__("nop");
+  //~ __asm__("nop");
   result = SPITransfer(REGISTER_WRITE | reg);
   SPITransfer(high);
   SPITransfer(low);
@@ -110,21 +110,21 @@ int LT8920Read(uint8_t *buffer, size_t maxBuffer) {
     buffer[pos++] = LT8920ReadRegisterByte(R_FIFO);
   }*/
   
-  __asm__("nop\nnop\nnop\nnop");				//>250ns delay
+  //~ __asm__("nop\nnop\nnop\nnop");				//>250ns delay
   SS = 0;
-  __asm__("nop");									//>41.5ns delay
+  //~ __asm__("nop");									//>41.5ns delay
   uint8_t statusHigh=SPITransfer(REGISTER_READ|R_FIFO);
   if ((statusHigh&0x80)!=0)
     packetSize=-1;	//CRC error
   else {
-    __asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");		//>450ns delay
+    //~ __asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");		//>450ns delay
     packetSize=SPITransfer(0);
     
     if (packetSize > maxBuffer)
       packetSize=-2;
     else {
       while (pos < packetSize) {
-	__asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");	//>450ns delay
+	//~ __asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");	//>450ns delay
 	buffer[pos++] = SPITransfer(0);
       }
     }

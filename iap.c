@@ -2,6 +2,7 @@
 #include "iap.h"
 
 static unsigned char EA_Save_bit;
+
 void enable_IAP_mode(void) {
   EA_Save_bit = EA;
   clr_EA;
@@ -13,6 +14,7 @@ void enable_IAP_mode(void) {
   IAPUEN |= 0x01;
   EA = EA_Save_bit;
 }
+
 void disable_IAP_mode(void) {
   EA_Save_bit = EA;
   clr_EA;
@@ -24,6 +26,7 @@ void disable_IAP_mode(void) {
   CHPCON &= ~0x01;
   EA = EA_Save_bit;
 }
+
 void trigger_IAP(void) {
   EA_Save_bit = EA;
   clr_EA;
@@ -32,13 +35,14 @@ void trigger_IAP(void) {
   IAPTRG |= 0x01;
   EA = EA_Save_bit;
 }
+
 unsigned char write_data_to_one_page(unsigned int u16_addr,
                                      const unsigned char *pDat,
                                      unsigned char num) {
   unsigned char i = 0;
   unsigned char offset = 0;
   unsigned char __code *pCode;
-  unsigned char __xdata *xd_tmp;
+  unsigned char __xdata xd_tmp[128];
   enable_IAP_mode();
   offset = (u16_addr & 0x007F);
   i = (PAGE_SIZE - offset);

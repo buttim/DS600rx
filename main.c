@@ -11,15 +11,15 @@
 
 #define PACKET_LENGTH 32 // 10
 #define T2 (0xFFFF - 16000)
+#define OLED
 
 __xdata uint8_t buf[PACKET_LENGTH], oldBuf[PACKET_LENGTH];
-__code __at(0x3600) const uint8_t channels[] = {34, 74, 4, 44, 29, 69, 9, 49};
-__xdata uint16_t pwm[6];
+__code __at(0x2EE0) const uint8_t channels[] = {34, 74, 4, 44, 29, 69, 9, 49};//{0,0,0,0,0,0,0,0};//
+__xdata uint16_t pwm[6],oldPwm[6];
 __xdata int nChannel = 0;
 __xdata volatile unsigned long millis = 0;
 __xdata unsigned long tLast = 0, nPersi = 0, nRicevuti = 0;
-bool pairing = false;
-__xdata uint8_t defaultData[]={0x14,0x42,0x84,0x20,0x96,0xB0,0x84,0x25,0x2C};
+__xdata bool pairing;
 
 void tim2() __interrupt 5 __using 1 {
   millis++;
@@ -105,26 +105,18 @@ void hop(int n) {
   nChannel += n;
   nChannel %= sizeof channels / sizeof(*channels);
   LT8920StartListening(channels[nChannel]);
-  Timer3_Delay10us(1);
-#ifdef OLED
-  OLED_ShowNum(100, 0, channels[nChannel], 2, 16);
-  OLED_ShowString(5, 6, "                  ", 16);
-#endif
 }
 
 void main() {
   TIMER1_MODE0_ENABLE;
   Set_All_GPIO_Quasi_Mode;
   InitialUART0_Timer1(115200);
+  
+  pairing=channels[0]==0 && channels[1]==0;
 
   puts("\x1b[2J\x1b[HVIA");
   if (pairing)
     puts("pairing");
-
-  /*uint8_t x;
-  read_data_flash((int)&channels,&x,1);
-  printHex8(x);
-  putchar('\n');*/
 
   initTimer2();
 
@@ -138,22 +130,19 @@ void main() {
 
   LT8920Begin(pairing);
   
-  //! OLED_Init();
-  //! OLED_Clear();
+#ifdef OLED
+  OLED_Init();
+  OLED_Clear();
+#endif
 
   LT8920StartListening(pairing ? 33 : channels[0]);
   putstring("in ascolto sul canale ");
-  printNum(channels[nChannel], 2);
+  printNum(pairing ? 33 : channels[nChannel], 2);
   putchar('\n');
-#ifdef OLED
-  OLED_ShowNum(100, 0, channels[0], 2, 16);
-  OLED_ShowString(40, 0, "channel", 16);
-#endif
+
   millis = 0;
   set_EA;
 
-  __xdata int nEqual=0;
-  P14=0;
   while (true) {
     if (!P20) {
       printNum(millis, 8);
@@ -182,15 +171,6 @@ void main() {
         set_EA;
         hop(1);
 	++nPersi;
-        /*if (nRicevuti > 0) {
-          printNum(millis, 8);
-          putchar(':');
-          putstring("persi ");
-          printNum(nPersi, 6);
-          putstring(" ricevuti ");
-          printNum(nRicevuti, 6);
-          putchar('\r');
-        }*/
 	continue;
       } else
         set_EA;
@@ -204,11 +184,11 @@ void main() {
       continue;
     }
 #ifndef OLED
-    //P14 = 0;
+    P14 = 0;
 #endif
     int n = LT8920Read(buf, sizeof buf);
 #ifndef OLED
-    //P14 = 1;
+    P14 = 1;
 #endif
 
     if (n > 0) {
@@ -220,26 +200,39 @@ void main() {
           putchar(' ');
         }
         putchar('\n');
-        LT8920StartListening(33);
+	write_data_flash((int)channels,buf+4,8);
+	pairing=false;
+	putstring("in ascolto sul canale ");
+	printNum(channels[nChannel], 2);
+	putchar('\n');
+	clr_EA;
+	millis=0;
+	set_EA;
+	LT8920Begin(false);
+        LT8920StartListening(channels[0]);
       } else if (!pairing && n == 9) {
         tLast = millis;
         ++nRicevuti;
-        //~ printNum(millis,10);
         if (memcmp(buf, oldBuf, n) != 0) {
-	  if (nEqual==0 || memcmp(oldBuf,defaultData,n)==0)
-	    putchar(' ');
-	  else
-	    putchar('*');
-	  printNum(nEqual+1,8);
-	  puts("");
-	  nEqual=0;
-	  
           pwm[0] = ((buf[2] & 0x0F) << 8) | buf[1];
 	  pwm[1] = (buf[3]<<4) | (buf[2]>>4);
           pwm[2] = ((buf[5] & 0x0F) << 8) | buf[4];
-          pwm[3] = ((buf[6] & 0x0F) << 8) | buf[5];
+          pwm[3] = (buf[6]>>4) | (buf[5]<< 4);
           pwm[4] = (buf[7] << 4) | (buf[6] >> 4);
 	  pwm[5] = ((buf[8] & 0xF0)<<4) | buf[0];
+	  if (memcmp(pwm,oldPwm,sizeof pwm)!=0) {
+	    int r=millis<1000?0:nRicevuti/(millis/1000);
+	    OLED_ShowNum(0,0,pwm[0],4,16);
+	    OLED_ShowNum(0,2,pwm[1],4,16);
+	    OLED_ShowNum(95,0,pwm[2],4,16);
+	    OLED_ShowNum(95,2,pwm[3],4,16);
+	    OLED_ShowNum(95,4,pwm[4],4,16);
+	    OLED_ShowNum(95,6,pwm[5],4,16);
+	    OLED_ShowString(0,6,"pkt/s",16);
+	    OLED_ShowNum(45,6,r,3,16);
+	    memcpy(oldPwm,pwm,sizeof pwm);
+	  }
+          memcpy(oldBuf, buf, n);
 
 	  putchar('[');
 	  for (int i = 0; i < n; i++) {
@@ -247,26 +240,14 @@ void main() {
 	    printHex8(buf[i]);
 	    putchar(',');
 	  }
-	  putstring("] ");
+	  puts("] ");
 
-	  //~ if (buf[0]!=0x14) {
-	    //~ P14=1;
-	    //~ P14=0;
-	    //~ putstring("STOP");
-	    //~ while (true)
-	      //~ ;
+	  //~ for (int i = 0; i < 6; i++) {
+	    //~ printNum(pwm[i], 4);
+	    //~ putchar(' ');
 	  //~ }
-	  
-          memcpy(oldBuf, buf, n);
-
-	  /*for (int i = 0; i < 6; i++) {
-	    putchar(' ');
-	    printNum(pwm[i], 4);
-	  }
-	  puts("             ");*/
+	  //~ putchar('\n');
         }
-	else
-	  nEqual++;
 	hop(1);
       } else {
         putstring("\nlunghezza sbagliata: ");

@@ -22,7 +22,7 @@ void SPIInit(void) {
   set_CPHA;
 
   set_MSTR;
-  SPICLK_DIV16; 
+  SPICLK_DIV2; 
   set_SPIEN;
   clr_SPIF;
 }

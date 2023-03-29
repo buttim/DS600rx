@@ -78,9 +78,9 @@ void IIC_Wait_Ack() {
 // IIC Write byte
 **********************************************/
 
-void Write_IIC_Byte(unsigned char IIC_Byte) {
-  unsigned char i;
-  unsigned char m, da;
+void Write_IIC_Byte(uint8_t IIC_Byte) {
+  uint8_t i;
+  uint8_t m, da;
   da = IIC_Byte;
   OLED_SCLK_Clr();
   for (i = 0; i < 8; i++) {
@@ -98,7 +98,7 @@ void Write_IIC_Byte(unsigned char IIC_Byte) {
 /**********************************************
 // IIC Write Command
 **********************************************/
-void Write_IIC_Command(unsigned char IIC_Command) {
+void Write_IIC_Command(uint8_t IIC_Command) {
   IIC_Start();
   Write_IIC_Byte(0x78); // Slave address,SA0=0
   IIC_Wait_Ack();
@@ -111,7 +111,7 @@ void Write_IIC_Command(unsigned char IIC_Command) {
 /**********************************************
 // IIC Write Data
 **********************************************/
-void Write_IIC_Data(unsigned char IIC_Data) {
+void Write_IIC_Data(uint8_t IIC_Data) {
   IIC_Start();
   Write_IIC_Byte(0x78); // D/C#=0; R/W#=0
   IIC_Wait_Ack();
@@ -124,7 +124,7 @@ void Write_IIC_Data(unsigned char IIC_Data) {
 /**********************************************
 // IIC WriteReadCmd
 **********************************************/
-void OLED_WR_Byte(unsigned dat, unsigned cmd) {
+void OLED_WR_Byte(uint8_t dat, uint8_t cmd) {
   if (cmd) {
 
     Write_IIC_Data(dat);
@@ -136,8 +136,8 @@ void OLED_WR_Byte(unsigned dat, unsigned cmd) {
 /********************************************
 // fill_Picture
 ********************************************/
-void fill_picture(unsigned char fill_Data) {
-  unsigned char m, n;
+void fill_picture(uint8_t fill_Data) {
+  uint8_t m, n;
   for (m = 0; m < 8; m++) {
     OLED_WR_Byte(0xb0 + m, 0); // page0-page1
     OLED_WR_Byte(0x00, 0);     // low column start address
@@ -149,7 +149,7 @@ void fill_picture(unsigned char fill_Data) {
 }
 //坐标设置
 
-void OLED_Set_Pos(unsigned char x, unsigned char y) {
+void OLED_Set_Pos(uint8_t x, uint8_t y) {
   OLED_WR_Byte(0xb0 + y, OLED_CMD);
   OLED_WR_Byte(((x & 0xf0) >> 4) | 0x10, OLED_CMD);
   OLED_WR_Byte((x & 0x0f), OLED_CMD);
@@ -202,7 +202,7 @@ void OLED_Update(void) {
 //size:16/12
 ********************************************/
 void OLED_ShowChar(uint8_t x, uint8_t y, uint8_t chr, uint8_t Char_Size) {
-  unsigned char c = 0, i = 0;
+  uint8_t c = 0, i = 0;
   c = chr - ' '; //得到偏移后的值
   if (x > Max_Column - 1) {
     x = 0;
@@ -260,7 +260,7 @@ void OLED_ShowNum(uint8_t x, uint8_t y, uint32_t num, uint8_t len,
 //Show a String
 ********************************************/
 void OLED_ShowString(uint8_t x, uint8_t y, uint8_t *chr, uint8_t Char_Size) {
-  unsigned char j = 0;
+  uint8_t j = 0;
   while (chr[j] != '\0') {
     OLED_ShowChar(x, y, chr[j], Char_Size);
     x += 8;
@@ -295,15 +295,10 @@ void OLED_ShowString(uint8_t x, uint8_t y, uint8_t *chr, uint8_t Char_Size) {
 /********************************************
 //Show Img
 ********************************************/
-void OLED_DrawBMP(unsigned char x0, unsigned char y0, unsigned char x1,
-                  unsigned char y1, unsigned char BMP[]) {
-  unsigned int j = 0;
-  unsigned char x, y;
-
-  //~ if (y1 % 8 == 0)
-    //~ y = y1 / 8;
-  //~ else
-    //~ y = y1 / 8 + 1;
+void OLED_DrawBMP(uint8_t x0, uint8_t y0, uint8_t x1,
+                  uint8_t y1, uint8_t BMP[]) {
+  unsigned j = 0;
+  uint8_t x, y;
 
   for (y = y0; y < y1; y++) {
     OLED_Set_Pos(x0, y);
