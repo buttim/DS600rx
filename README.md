@@ -1,16 +1,16 @@
 Receiver
 ===
-Transceiver LT8920
-AT24C02, 2K SERIAL EEPROM
-MCU NUvoton N79E715 o N79E845/844/8432 ? No…
+- Radio LT8920
+- AT24C02, 2K SERIAL EEPROM
+- MCU: NUvoton N79E715 o N79E845/844/8432 ? No…
 
 ![prova](RX.svg)
 
 Transmitter
 ===
-MCU Fremont Micro Devices FT61E0Ax ?
-Modulo radio LT89xx
-Battery manager FP8102XR-G1
+- MCU: Fremont Micro Devices FT61E0Ax ?
+- Radio: IC LT89xx
+- Battery manager: FP8102XR-G1
 
 ![prova](TX.jpg)
 
@@ -47,7 +47,7 @@ All values marked with <sup>\*</sup> are recommended in the datasheet
 |35 |0300<sup>\*</sup>|AutoAck max Tx retries = 31                            |
 |40 |4401             |FIFO\_EMPTY\_THRESHOLD=16, FIFO\_FULL\_THRESHOLD=16, SYNCWORD\_THRESHOLD=0|
 |41 |B400             |CRC ON, scramble off, packet length enabled, FW\_TERM\_TX on, AUTOACK off, PKT\_FIFO\_POLARITY active low, CRC\_INITIAL\_DATA=0|
-|42 |FDB0<sup>\*</sup>|Number of consecutive channels to scan for RSSI value (64); Wait RX\_ack ID timer setting. 176us|
+|42 |FDB0<sup>\*</sup>|Number of consecutive channels to scan for RSSI value (64); Wait RX\_ack ID timer setting. 176µs|
 |44 |0800             |Datarate: 125Kbps                                      |
 |45 |0552             |Best value is 0552H when data rate is 250Kbps/125Kbps/62.5KBps|
 |39 |F3AA             |SYNC word #1                                           |
@@ -81,3 +81,11 @@ At power on the transmitter sends 20 identical packets on channel 33, each 20 by
 |  36  | ?                                    |
 |  18  | ?                                    |
 |  40  | ?                                    |
+
+Data streming
+===
+One packet every 5ms
+
+PWM
+===
+Frequency 50Hz, duty cycle 4.8% - 9.6% (960-1920µs)
