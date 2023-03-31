@@ -9,7 +9,6 @@ uint16_t LT8920ReadRegister(uint8_t reg) {
   uint8_t h, l;
 
   SS = 0;
-  //~ __asm__("nop");
 
   SPITransfer(REGISTER_READ | reg);
   h = SPITransfer(0);
@@ -19,23 +18,10 @@ uint16_t LT8920ReadRegister(uint8_t reg) {
   return (h << 8) | l;
 }
 
-/*uint8_t LT8920ReadRegisterByte(uint8_t reg) {
-  SS = 0;
-  __asm__("nop");
-
-  SPITransfer(REGISTER_READ | reg);
-  __asm__("nop\nnop\nnop");
-  uint8_t v = SPITransfer(0);
-
-  SS = 1;
-  return v;
-}*/
-
 uint8_t LT8920WriteRegister2(uint8_t reg, uint8_t high, uint8_t low) {
   uint8_t result;
 
   SS = 0;
-  //~ __asm__("nop");
   result = SPITransfer(REGISTER_WRITE | reg);
   SPITransfer(high);
   SPITransfer(low);
@@ -99,36 +85,17 @@ void LT8920StartListening(int channel) {
 }
 
 int LT8920Read(uint8_t *buffer, size_t maxBuffer) {
-  uint8_t pos = 0, packetSize;/* = LT8920ReadRegisterByte(R_FIFO);
-
-  if (packetSize > maxBuffer)
-    return -2;
-
-  while (pos < packetSize) {
-    __asm__("nop\nnop\nnop\nnop\nnop");
-    __asm__("nop\nnop\nnop\nnop\nnop");
-    buffer[pos++] = LT8920ReadRegisterByte(R_FIFO);
-  }*/
+  uint8_t pos = 0, packetSize; 
   
-  //~ __asm__("nop\nnop\nnop\nnop");				//>250ns delay
   SS = 0;
-  //~ __asm__("nop");									//>41.5ns delay
   uint8_t statusHigh=SPITransfer(REGISTER_READ|R_FIFO);
-  if ((statusHigh&0x80)!=0)
-    packetSize=-1;	//CRC error
-  else {
-    //~ __asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");		//>450ns delay
-    packetSize=SPITransfer(0);
-    
-    if (packetSize > maxBuffer)
-      packetSize=-2;
-    else {
-      while (pos < packetSize) {
-	//~ __asm__("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop");	//>450ns delay
-	buffer[pos++] = SPITransfer(0);
-      }
-    }
-  }
+  packetSize=SPITransfer(0);
+  
+  if (packetSize > maxBuffer)
+    packetSize=-2;
+  else
+    while (pos < packetSize)
+      buffer[pos++] = SPITransfer(0);
   SS=1;
   return packetSize;
 }

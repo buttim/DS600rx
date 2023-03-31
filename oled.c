@@ -1,10 +1,13 @@
 //@main.c
+//https://notbe.cn/2019/05/12/u014798590_90138776.html
 #include "N76E003.h"
 #include "oled.h"
 #include "oledfont.h"
 
-/*SCL    P1.3
-SDA      P1.4*/
+#undef SCL
+#undef SDA
+#define SCL P30
+#define SDA P17
 #define OLED_SCLK_Clr() SCL = 0
 #define OLED_SCLK_Set() SCL = 1
 #define OLED_SDIN_Clr() SDA = 0
@@ -14,7 +17,7 @@ SDA      P1.4*/
 #define SYS_SEL 2
 #define SYS_DIV_EN 0 // 0: Fsys=Fosc, 1: Fsys = Fosc/(2*CKDIV)
 #define SYS_DIV 1
-#define I2C_CLOCK 2
+#define I2C_CLOCK 128
 #define TEST_OK 0x00
 
 #define OLED_CMD 0  //写命令
@@ -34,16 +37,8 @@ SDA      P1.4*/
 (必须配置为开漏模式，并加上拉电阻)
 **********************************************/
 void Init_I2C(void) {
-  P13_OpenDrain_Mode;					// Modify SCL pin to Open drain mode.
-  // don't forget the pull high resister in circuit P14_OpenDrain_Mode;
-  // // Modify SDA pin to Open drain mode. don't forget the pull high resister in
-  // circuit
-
-  /* Set I2C clock rate */
-  I2CLK = I2C_CLOCK;
-
-  /* Enable I2C */
-  I2CEN = 1; // set_I2CEN;
+  P17_OpenDrain_Mode;					// Modify SCL pin to Open drain mode.
+  P30_OpenDrain_Mode;					// Modify SDA pin to Open drain mode.
 }
 
 /**********************************************
@@ -125,13 +120,10 @@ void Write_IIC_Data(uint8_t IIC_Data) {
 // IIC WriteReadCmd
 **********************************************/
 void OLED_WR_Byte(uint8_t dat, uint8_t cmd) {
-  if (cmd) {
-
+  if (cmd)
     Write_IIC_Data(dat);
-
-  } else {
+  else
     Write_IIC_Command(dat);
-  }
 }
 /********************************************
 // fill_Picture
@@ -179,20 +171,6 @@ void OLED_Clear(void) {
     for (n = 0; n < 128; n++)
       OLED_WR_Byte(0, OLED_DATA);
   } //更新显示
-}
-
-/********************************************
-// OLED Update
-********************************************/
-void OLED_Update(void) {
-  uint8_t i, n;
-  for (i = 0; i < 8; i++) {
-    OLED_WR_Byte(0xb0 + i, OLED_CMD); //设置页地址（0~7）
-    OLED_WR_Byte(0x00, OLED_CMD);     //设置显示位置—列低地址
-    OLED_WR_Byte(0x10, OLED_CMD);     //设置显示位置—列高地址
-    for (n = 0; n < 128; n++)
-      OLED_WR_Byte(1, OLED_DATA);
-  }
 }
 
 /********************************************
@@ -271,26 +249,6 @@ void OLED_ShowString(uint8_t x, uint8_t y, uint8_t *chr, uint8_t Char_Size) {
     j++;
   }
 }
-
-/********************************************
-//Show  汉字
-********************************************/
-/*void OLED_ShowCHinese(uint8_t x,uint8_t y,uint8_t no)
-{
-        uint8_t t,adder=0;
-        OLED_Set_Pos(x,y);
-    for(t=0;t<16;t++)
-                {
-                                OLED_WR_Byte(Hzk[2*no][t],OLED_DATA);
-                                adder+=1;
-     }
-                OLED_Set_Pos(x,y+1);
-    for(t=0;t<16;t++)
-                        {
-                                OLED_WR_Byte(Hzk[2*no+1][t],OLED_DATA);
-                                adder+=1;
-      }
-}*/
 
 /********************************************
 //Show Img
